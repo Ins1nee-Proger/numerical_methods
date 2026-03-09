@@ -2,8 +2,14 @@ import requests
 import numpy as np
 import matplotlib.pyplot as plt
 
-url = "https://api.open-elevation.com/api/v1/lookup?locations=48.164214,24.536044|48.164983,24.534836|48.165605,24.534068|48.166228,24.532915|48.166777,24.531927|48.167326,24.530884|48.167011,24.530061|48.166053,24.528039|48.166655,24.526064|48.166497,24.523574|48.166128,24.520214|48.165416,24.517170|48.164546,24.514640|48.163412,24.512980|48.162331,24.511715|48.162015,24.509462|48.162147,24.506932|48.161751,24.504244|48.161197,24.501793|48.160580,24.500537|48.160250,24.500106"
-
+url = "https://api.opentopodata.org/v1/srtm90m?locations=" \
+"48.164214,24.536044|48.164983,24.534836|48.165605,24.534068|" \
+"48.166228,24.532915|48.166777,24.531927|48.167326,24.530884|" \
+"48.167011,24.530061|48.166053,24.528039|48.166655,24.526064|" \
+"48.166497,24.523574|48.166128,24.520214|48.165416,24.517170|" \
+"48.164546,24.514640|48.163412,24.512980|48.162331,24.511715|" \
+"48.162015,24.509462|48.162147,24.506932|48.161751,24.504244|" \
+"48.161197,24.501793|48.160580,24.500537|48.160250,24.500106"
 response = requests.get(url)
 data = response.json()
 results = data["results"]
@@ -19,7 +25,7 @@ def haversine(lat1, lon1, lat2, lon2):
     return 2 * R * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
 
-coords = [(p["latitude"], p["longitude"]) for p in results]
+coords = [(p["location"]["lat"], p["location"]["lng"]) for p in results]
 elevations = [p["elevation"] for p in results]
 
 distances = [0]
@@ -27,54 +33,65 @@ for idx in range(1, n_nodes):
     dist = haversine(*coords[idx - 1], *coords[idx])
     distances.append(distances[-1] + dist)
 
-with open("tabulation.txt", "w") as f:
-    f.write(" Latitude | Longitude | Elevation (m) | Distance (m)\n")
-    for idx, point in enumerate(results):
-        f.write(
-            f"{idx:2d} | {point['latitude']:.6f} | {point['longitude']:.6f} | {point['elevation']:.2f} | {distances[idx]:.2f}\n")
+with open("tabFunc.txt", "w") as f:
 
+    f.write(" Latitude | Longitude | Elevation (m) | Distance (m)\n")
+
+    for idx, point in enumerate(results):
+
+        lat = point["location"]["lat"]
+        lon = point["location"]["lng"]
+        elev = point["elevation"]
+
+        f.write(
+            f"{idx:2d} | {lat:.6f} |"
+            f" {lon:.6f} |"
+            f" {elev:.2f} |"
+            f" {distances[idx]:.2f}\n"
+        )
 x_full = np.array(distances)
 y_full = np.array(elevations)
 
 
-def cubic_spline_natural(x_arr, y_arr):
-    num = len(x_arr)
-    h = np.diff(x_arr)
+def spline_coeff(x, y):
+    m = len(x)
+    h = np.diff(x)
 
-    A = np.zeros(num)
-    B = np.zeros(num)
-    C = np.zeros(num)
-    D = np.zeros(num)
+    A = np.zeros(m)
+    B = np.zeros(m)
+    C = np.zeros(m)
+    F = np.zeros(m)
 
     B[0] = 1
     B[-1] = 1
 
-    for i in range(1, num - 1):
+    for i in range(1, m - 1):
         A[i] = h[i - 1]
         B[i] = 2 * (h[i - 1] + h[i])
         C[i] = h[i]
-        D[i] = 6 * ((y_arr[i + 1] - y_arr[i]) / h[i] - (y_arr[i] - y_arr[i - 1]) / h[i - 1])
+        F[i] = 6 * ((y[i + 1] - y[i]) / h[i] - (y[i] - y[i - 1]) / h[i - 1])
 
-    for i in range(1, num):
-        m_val = A[i] / B[i - 1]
-        B[i] -= m_val * C[i - 1]
-        D[i] -= m_val * D[i - 1]
+    for i in range(1, m):
+        t = A[i] / B[i - 1]
+        B[i] -= t * C[i - 1]
+        F[i] -= t * F[i - 1]
 
-    M = np.zeros(num)
-    M[-1] = D[-1] / B[-1]
-    for i in range(num - 2, -1, -1):
-        M[i] = (D[i] - C[i] * M[i + 1]) / B[i]
+    M = np.zeros(m)
+    M[-1] = F[-1] / B[-1]
 
-    a = y_arr[:-1]
-    b = np.zeros(num - 1)
+    for i in range(m - 2, -1, -1):
+        M[i] = (F[i] - C[i] * M[i + 1]) / B[i]
+
+    a = y[:-1]
+    b = np.zeros(m - 1)
     c = M[:-1] / 2
-    d = np.zeros(num - 1)
+    d = np.zeros(m - 1)
 
-    for i in range(num - 1):
-        b[i] = (y_arr[i + 1] - y_arr[i]) / h[i] - h[i] * (2 * M[i] + M[i + 1]) / 6
+    for i in range(m - 1):
+        b[i] = (y[i + 1] - y[i]) / h[i] - h[i] * (2 * M[i] + M[i + 1]) / 6
         d[i] = (M[i + 1] - M[i]) / (6 * h[i])
 
-    return a, b, c, d, x_arr
+    return a, b, c, d, x
 
 
 def spline_eval(xi, a, b, c, d, x_nodes):
@@ -85,7 +102,7 @@ def spline_eval(xi, a, b, c, d, x_nodes):
     return None
 
 
-a_full, b_full, c_full, d_full, x_nodes_full = cubic_spline_natural(x_full, y_full)
+a_full, b_full, c_full, d_full, x_nodes_full = spline_coeff(x_full, y_full)
 
 xx = np.linspace(x_full[0], x_full[-1], 1000)
 yy_full = np.array([spline_eval(xi, a_full, b_full, c_full, d_full, x_nodes_full) for xi in xx])
@@ -96,7 +113,7 @@ def test_nodes(k):
     x_k = x_full[indices]
     y_k = y_full[indices]
 
-    a_k, b_k, c_k, d_k, x_nodes_k = cubic_spline_natural(x_k, y_k)
+    a_k, b_k, c_k, d_k, x_nodes_k = spline_coeff(x_k, y_k)
     yy_k = np.array([spline_eval(xi, a_k, b_k, c_k, d_k, x_nodes_k) for xi in xx])
 
     error = np.abs(yy_k - yy_full)
