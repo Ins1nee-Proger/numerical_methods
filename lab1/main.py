@@ -27,13 +27,14 @@ def haversine(lat1, lon1, lat2, lon2):
 
 coords = [(p["location"]["lat"], p["location"]["lng"]) for p in results]
 elevations = [p["elevation"] for p in results]
-
+# 4. Обчислення кумулятивної відстані
 distances = [0]
 for idx in range(1, n_nodes):
     dist = haversine(*coords[idx - 1], *coords[idx])
     distances.append(distances[-1] + dist)
 
-with open("tabFunc.txt", "w") as f:
+# 3. Результати табуляції записати в текстовий файл
+with open("tabFunc2.txt", "w") as f:
 
     f.write(" Latitude | Longitude | Elevation (m) | Distance (m)\n")
 
@@ -52,7 +53,7 @@ with open("tabFunc.txt", "w") as f:
 x_full = np.array(distances)
 y_full = np.array(elevations)
 
-
+# 6. функція знаходження кубічних сплайнів
 def spline_coeff(x, y):
     m = len(x)
     h = np.diff(x)
@@ -70,7 +71,7 @@ def spline_coeff(x, y):
         B[i] = 2 * (h[i - 1] + h[i])
         C[i] = h[i]
         F[i] = 6 * ((y[i + 1] - y[i]) / h[i] - (y[i] - y[i - 1]) / h[i - 1])
-
+    # 7. Розв’язання СЛАР методом прогонки
     for i in range(1, m):
         t = A[i] / B[i - 1]
         B[i] -= t * C[i - 1]
@@ -136,6 +137,8 @@ print(f"Сумарний підйом: {total_ascent:.0f} м")
 print(f"Максимальний градієнт: {np.max(grad_full):.1f}%")
 print(f"Енергія на підйом (80 кг): {energy / 4184:.0f} ккал")
 
+
+# 5. Побудова графіка висоти маршруту
 plt.figure(figsize=(11, 6))
 plt.plot(distances, elevations, 'o-', color='forestgreen', linewidth=2, markersize=6, label='GPS точки')
 plt.xlabel("Кумулятивна відстань (м)", fontsize=11)
