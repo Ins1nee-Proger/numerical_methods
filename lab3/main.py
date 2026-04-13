@@ -71,7 +71,7 @@ def calc_variance(y_true, y_pred):
 
 
 # Пошук оптимального степеня поліно
-max_deg = 10
+max_deg = 11
 var_list = []
 
 for deg in range(1, max_deg + 1):
@@ -131,4 +131,15 @@ plt.xlabel("Місяць")
 plt.ylabel("|Temp_fact - Temp_approx|")
 plt.grid(True)
 plt.legend()
+plt.show()
+
+# Графік дисперсії від степеня полінома
+degrees = np.arange(1, max_deg + 1)
+
+plt.figure(figsize=(10, 6))
+plt.plot(degrees, var_list, marker='o')
+plt.title("Залежність дисперсії від степеня полінома")
+plt.xlabel("Степінь полінома")
+plt.ylabel("Дисперсія")
+plt.grid(True)
 plt.show()

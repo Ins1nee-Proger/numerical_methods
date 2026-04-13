@@ -59,6 +59,11 @@ def lagrange(x, y, xp):
 # MAIN
 x_data, y_data = read_data("data.csv")
 
+dd = divided_differences(x_data, y_data)
+
+print("\nКоефіцієнти розділених різниць Ньютона:")
+for i, v in enumerate(dd):
+    print(f"f[x0..x{i}] = {v:.6f}")
 predict_point = 6000
 
 print("\n=== ПРОГНОЗ ===")
